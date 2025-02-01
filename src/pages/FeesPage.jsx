@@ -41,7 +41,8 @@ const FeesPage = () => {
         <tbody>
           {fees.map(fee => (
             <tr key={fee.id}>
-              <td>{fee.contract}</td>
+              {/* 如果 fee.contract 是一个对象，这里显示合同的 ID */}
+              <td>{fee.contract && fee.contract.id}</td>
               <td>{fee.category}</td>
               <td>{fee.amount}</td>
               <td>{fee.term}</td>
