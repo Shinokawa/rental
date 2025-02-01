@@ -53,6 +53,14 @@ const PaymentManagementPage = () => {
     }
   };
 
+  const handlePrintReceipt = async (payment) => {
+    try {
+      await printReceipt(payment);
+    } catch (error) {
+      alert('下载收据失败，请重试');
+    }
+  };
+
   const filteredPayments = payments.filter(payment => {
     if (filters.startDate && new Date(payment.payment_date) < new Date(filters.startDate)) {
       return false;
@@ -153,8 +161,8 @@ const PaymentManagementPage = () => {
                       acceptTypes=".pdf,.jpg,.png"
                     />
                   )}
-                  <button onClick={() => printReceipt(payment)}>
-                    打印收据
+                  <button onClick={() => handlePrintReceipt(payment)}>
+                    下载收据
                   </button>
                 </div>
               </td>

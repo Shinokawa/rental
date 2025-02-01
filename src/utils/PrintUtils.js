@@ -1,30 +1,33 @@
-export const printReceipt = (payment) => {
-  const receiptContent = `
-    收据编号: ${payment.id}
-    日期: ${new Date().toLocaleDateString()}
-    租户: ${payment.fee.contract.tenant.first_name} ${payment.fee.contract.tenant.last_name}
-    房号: ${payment.fee.contract.properties.map(p => p.house_number).join(', ')}
-    费用类型: ${payment.fee.category}
-    金额: ¥${payment.amount}
-    支付方式: ${payment.payment_method}
-    经办人: ${localStorage.getItem('username')}
-  `;
-  
-  const printWindow = window.open('', '_blank');
-  printWindow.document.write(`
-    <html>
-      <head><title>收据</title></head>
-      <body>
-        <pre>${receiptContent}</pre>
-        <script>
-          window.onload = () => {
-            window.print();
-            window.close();
-          };
-        </script>
-      </body>
-    </html>
-  `);
+export const printReceipt = async (payment) => {
+  try {
+    // 请求后端生成的PDF
+    const response = await fetch(
+      `http://localhost:8000/api/payments/${payment.id}/print_receipt/`,
+      {
+        headers: {
+          'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error('获取收据失败');
+    }
+
+    // 处理文件下载
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `receipt_${payment.id}.pdf`;  // 简化文件名处理
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('下载收据失败:', error);
+    throw error;
+  }
 };
 
 export const exportToExcel = (data, filename) => {

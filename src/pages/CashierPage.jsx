@@ -25,9 +25,10 @@ const CashierPage = () => {
     fetchUnpaidFees();
   }, []);
 
-  // 获取未付费用的函数
+  // 修改获取未付费用的函数
   const fetchUnpaidFees = async () => {
     try {
+      // 直接获取未收取的费用
       const response = await fetch('http://localhost:8000/api/fees/?is_collected=false', {
         headers: {
           'Authorization': 'Bearer ' + localStorage.getItem('access_token')
@@ -43,7 +44,7 @@ const CashierPage = () => {
   // 修改搜索处理函数
   const handleSearch = async () => {
     try {
-      let url = 'http://localhost:8000/api/fees/?is_collected=false';
+      let url = 'http://localhost:8000/api/fees/?is_collected=false';  // 确保只获取未收取的费用
       if (searchTerm) {
         url += `&search=${encodeURIComponent(searchTerm)}`;
       }
@@ -62,9 +63,24 @@ const CashierPage = () => {
   const handlePayment = async (e) => {
     e.preventDefault();
     if (!selectedFee) return;
-    
+
     try {
-      // 1. 先尝试创建支付记录
+      // 1. 再次检查该费用是否已收取
+      const checkResponse = await fetch(`http://localhost:8000/api/fees/${selectedFee.id}/`, {
+        headers: {
+          'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+        }
+      });
+      const feeData = await checkResponse.json();
+      
+      if (feeData.is_collected) {
+        alert('该费用已收取，请勿重复支付！');
+        await fetchUnpaidFees(); // 刷新列表
+        setSelectedFee(null);
+        return;
+      }
+
+      // 2. 创建支付记录
       const response = await fetch('http://localhost:8000/api/payments/', {
         method: 'POST',
         headers: {
@@ -86,35 +102,29 @@ const CashierPage = () => {
 
       const data = await response.json();
 
-      // 2. 更新费用状态
-      await fetch(`http://localhost:8000/api/fees/${selectedFee.id}/`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + localStorage.getItem('access_token')
-        },
-        body: JSON.stringify({
-          is_collected: true,
-          payment_method: paymentInfo.payment_method
-        })
-      });
-
-      // 3. 尝试打印收据（如果失败不影响主流程）
+      // 3. 下载收据
       try {
         await printReceipt(data);
+        alert('收款成功！收据已开始下载');
       } catch (printError) {
-        console.error('打印收据失败:', printError);
-        alert('收款成功，但打印收据失败，请从收银管理页面重新打印');
+        console.error('下载收据失败:', printError);
+        alert('收款成功，但下载收据失败，请从收银管理页面重新下载');
       }
 
+      // 4. 重置表单和刷新数据
       setSelectedFee(null);
       setPaymentInfo({
         amount: '',
         payment_method: '',
         remarks: ''
       });
-      fetchUnpaidFees();
-      alert('收款成功！');
+
+      // 5. 立即从列表中移除已支付的费用
+      setUnpaidFees(prevFees => prevFees.filter(fee => fee.id !== selectedFee.id));
+      setSortedFees(prevFees => prevFees.filter(fee => fee.id !== selectedFee.id));
+
+      // 6. 可选：完全刷新数据
+      await fetchUnpaidFees();
 
     } catch (error) {
       console.error('收款失败:', error);
@@ -132,6 +142,27 @@ const CashierPage = () => {
     return categories[category] || category;
   };
 
+  // 添加按金额排序函数
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [sortedFees, setSortedFees] = useState([]);
+
+  useEffect(() => {
+    const sorted = [...unpaidFees].sort((a, b) => {
+      return sortOrder === 'desc' ? b.amount - a.amount : a.amount - b.amount;
+    });
+    setSortedFees(sorted);
+  }, [unpaidFees, sortOrder]);
+
+  // 修改处理收款表单的默认值
+  useEffect(() => {
+    if (selectedFee) {
+      setPaymentInfo({
+        ...paymentInfo,
+        amount: selectedFee.amount // 自动填充费用金额
+      });
+    }
+  }, [selectedFee]);
+
   return (
     <div className="cashier-page">
       <h2>收银台</h2>
@@ -139,41 +170,39 @@ const CashierPage = () => {
       <div className="search-section">
         <input
           type="text"
-          placeholder="输入房号/租户名/合同号..."
+          placeholder="输入房号/租户名..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
         <button onClick={handleSearch}>搜索</button>
         <button onClick={fetchUnpaidFees}>显示全部未付费用</button>
+        <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+          <option value="desc">金额从高到低</option>
+          <option value="asc">金额从低到高</option>
+        </select>
       </div>
 
       <div className="unpaid-fees">
-        {unpaidFees.length > 0 ? (
+        {sortedFees.length > 0 ? (
           <table>
             <thead>
               <tr>
-                <th>费用ID</th>
-                <th>合同ID</th>
                 <th>租户</th>
                 <th>房号</th>
                 <th>费用类型</th>
                 <th>金额</th>
                 <th>所属期限</th>
-                <th>逾期状态</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              {unpaidFees.map(fee => (
-                <tr key={fee.id}>
-                  <td>{fee.id}</td>
-                  <td>{fee.contract.id}</td>
+              {sortedFees.map(fee => (
+                <tr key={fee.id} className={fee.overdue_status === 'overdue' ? 'overdue' : ''}>
                   <td>{fee.contract.tenant.first_name} {fee.contract.tenant.last_name}</td>
                   <td>{fee.contract.properties.map(p => p.house_number).join(', ')}</td>
                   <td>{formatFeeCategory(fee.category)}</td>
                   <td>¥{fee.amount}</td>
                   <td>{fee.term}</td>
-                  <td>{fee.overdue_status === 'on_time' ? '正常' : '逾期'}</td>
                   <td>
                     <button 
                       onClick={() => setSelectedFee(fee)}
@@ -193,7 +222,12 @@ const CashierPage = () => {
 
       {selectedFee && (
         <div className="payment-form">
-          <h3>收款信息</h3>
+          <h3>收款信息 - {formatFeeCategory(selectedFee.category)}</h3>
+          <div className="fee-info">
+            <p>租户：{selectedFee.contract.tenant.first_name} {selectedFee.contract.tenant.last_name}</p>
+            <p>房号：{selectedFee.contract.properties.map(p => p.house_number).join(', ')}</p>
+            <p>所属期限：{selectedFee.term}</p>
+          </div>
           <form onSubmit={handlePayment}>
             <div>
               <label>收款金额:</label>
@@ -209,6 +243,7 @@ const CashierPage = () => {
               <select
                 value={paymentInfo.payment_method}
                 onChange={e => setPaymentInfo({...paymentInfo, payment_method: e.target.value})}
+                required
               >
                 <option value="">请选择支付方式</option>
                 {Object.entries(PAYMENT_METHODS).map(([value, label]) => (
@@ -217,13 +252,6 @@ const CashierPage = () => {
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label>备注:</label>
-              <textarea
-                value={paymentInfo.remarks}
-                onChange={e => setPaymentInfo({...paymentInfo, remarks: e.target.value})}
-              />
             </div>
             <div className="button-group">
               <button type="submit">确认收款</button>
