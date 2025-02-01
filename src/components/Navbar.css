@@ -26,3 +26,14 @@
   .navbar h1 {
     margin: 0;
   }
+
+  .cashier-link {
+    background-color: #e74c3c;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: bold;
+  }
+  
+  .cashier-link:hover {
+    background-color: #c0392b;
+  }

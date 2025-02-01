@@ -9,6 +9,9 @@ import FeesPage from './pages/FeesPage';
 import TenantsPage from './pages/TenantsPage';
 import PaymentManagementPage from './pages/PaymentManagementPage';
 import DataAnalysisPage from './pages/DataAnalysisPage';
+import EditPropertyPage from './pages/EditPropertyPage';
+import EditContractPage from './pages/EditContractPage';
+import CashierPage from './pages/CashierPage.jsx';
 
 const App = () => {
   return (
@@ -25,6 +28,11 @@ const App = () => {
             <Route path="/tenants" element={<TenantsPage />} />
             <Route path="/payments" element={<PaymentManagementPage />} />
             <Route path="/analysis" element={<DataAnalysisPage />} />
+            <Route path="/properties/new" element={<EditPropertyPage />} />
+            <Route path="/properties/:id/edit" element={<EditPropertyPage />} />
+            <Route path="/contracts/new" element={<EditContractPage />} />
+            <Route path="/contracts/:id/edit" element={<EditContractPage />} />
+            <Route path="/cashier" element={<CashierPage />} />
           </Routes>
         </div>
       </div>

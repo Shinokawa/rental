@@ -23,6 +23,7 @@ const Navbar = () => {
         <li><Link to="/tenants">客户管理</Link></li>
         <li><Link to="/payments">收银管理</Link></li>
         <li><Link to="/analysis">数据分析</Link></li>
+        <li><Link to="/cashier" className="cashier-link">收银台</Link></li>
         {!token ? (
           <li><Link to="/login">登录</Link></li>
         ) : (
