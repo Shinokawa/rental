@@ -28,14 +28,15 @@ const CashierPage = () => {
   // 修改获取未付费用的函数
   const fetchUnpaidFees = async () => {
     try {
-      // 直接获取未收取的费用
       const response = await fetch('http://localhost:8000/api/fees/?is_collected=false', {
         headers: {
           'Authorization': 'Bearer ' + localStorage.getItem('access_token')
         }
       });
       const data = await response.json();
-      setUnpaidFees(data);
+      // 添加前端过滤，确保只显示未收取的费用
+      const trulyUnpaidFees = data.filter(fee => !fee.is_collected);
+      setUnpaidFees(trulyUnpaidFees);
     } catch (error) {
       console.error('获取未付费用失败:', error);
     }
@@ -54,10 +55,33 @@ const CashierPage = () => {
         }
       });
       const data = await response.json();
-      setUnpaidFees(data);
+      // 搜索结果也需要过滤
+      const filteredFees = data.filter(fee => !fee.is_collected);
+      setUnpaidFees(filteredFees);
     } catch (error) {
       console.error('搜索失败:', error);
     }
+  };
+
+  // 添加数据检查的辅助函数
+  const isValidFeeForPayment = (fee) => {
+    return fee && 
+           !fee.is_collected && 
+           fee.overdue_status === 'on_time' &&
+           Number(fee.amount) > 0;
+  };
+
+  // 修改处理点击收款按钮的逻辑
+  const handleSelectFee = (fee) => {
+    if (!isValidFeeForPayment(fee)) {
+      alert('该费用不可收取（已收取、金额为0或已逾期）');
+      return;
+    }
+    setSelectedFee(fee);
+    setPaymentInfo({
+      ...paymentInfo,
+      amount: fee.amount
+    });
   };
 
   const handlePayment = async (e) => {
@@ -205,8 +229,9 @@ const CashierPage = () => {
                   <td>{fee.term}</td>
                   <td>
                     <button 
-                      onClick={() => setSelectedFee(fee)}
+                      onClick={() => handleSelectFee(fee)}
                       className="collect-button"
+                      disabled={!isValidFeeForPayment(fee)}
                     >
                       收款
                     </button>

@@ -63,6 +63,15 @@ tr.overdue {
   cursor: pointer;
 }
 
+.collect-button:disabled {
+  background-color: #d9d9d9;
+  cursor: not-allowed;
+}
+
+.collect-button:disabled:hover {
+  background-color: #d9d9d9;
+}
+
 .payment-form {
   background-color: #f9f9f9;
   padding: 20px;
